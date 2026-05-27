@@ -63,76 +63,81 @@ export default function PublicContactPage() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-brand-offWhite">
-      <div className="w-full max-w-xl bg-brand-white p-8 rounded-xl shadow-sm border border-gray-100">
-        
-        {/* Foundation Branding Header */}
-        <header className="text-center mb-8">
-          <h1 className="font-title font-bold text-3xl text-brand-dark tracking-tight mb-2">
-            SHE CAN <span className="text-brand-crimson">FOUNDATION</span>
-          </h1>
-          <p className="text-gray-500 font-medium text-sm">Submit your information or message directly using the secure platform below.</p>
-        </header>
+    <main className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-gray-50">
+        <div className="w-full max-w-xl bg-white p-8 rounded-xl shadow-md border border-gray-300">
+          
+          {/* Foundation Branding Header with Integrated Logo */}
+          <header className="flex flex-col items-center text-center mb-8">
+            <img 
+              src="https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=375,fit=crop/Aq2NJ23MzBH2rx2j/she-YlenJon1O7ieeEoa.jpg" 
+              alt="She Can Foundation Logo" 
+              className="h-16 w-auto object-contain mb-4 rounded"
+            />
+            <h1 className="font-title font-bold text-3xl text-slate-900 tracking-tight mb-2">
+              SHE CAN <span className="text-red-600">FOUNDATION</span>
+            </h1>
+            <p className="text-gray-500 font-medium text-sm">Submit your information or message directly using the secure platform below.</p>
+          </header>
 
-        {isSubmitted ? (
-          <div className="text-center py-8 animate-fadeIn">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-50 text-brand-crimson mb-4 text-2xl font-bold">✓</div>
-            <h2 className="font-title font-bold text-2xl text-brand-dark mb-2">Form Submitted Successfully</h2>
-            <p className="text-gray-500 mb-6">Thank you for reaching out to us. Your contact entry record has been saved.</p>
-            <button 
-              onClick={() => setIsSubmitted(false)}
-              className="px-6 py-2.5 bg-brand-crimson text-brand-white font-medium rounded-lg hover:bg-red-700 transition-colors font-body"
-            >
-              Submit Another Message
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {serverError && (
-              <div className="p-4 bg-red-50 border-l-4 border-brand-crimson text-brand-crimson text-sm rounded-r-lg font-medium">
-                {serverError}
+          {isSubmitted ? (
+            <div className="text-center py-8 animate-fadeIn">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-50 text-red-600 mb-4 text-2xl font-bold">✓</div>
+              <h2 className="font-title font-bold text-2xl text-slate-900 mb-2">Form Submitted Successfully</h2>
+              <p className="text-gray-500 mb-6">Thank you for reaching out to us. Your contact entry record has been saved.</p>
+              <button 
+                onClick={() => setIsSubmitted(false)}
+                className="px-6 py-2.5 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors font-body"
+              >
+                Submit Another Message
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {serverError && (
+                <div className="p-4 bg-red-50 border-l-4 border-red-600 text-red-600 text-sm rounded-r-lg font-medium">
+                  {serverError}
+                </div>
+              )}
+
+              <div>
+                <label className="block font-title font-semibold text-sm text-slate-900 mb-1.5">Full Name</label>
+                <input 
+                  type="text" name="name" value={formData.name} onChange={handleChange}
+                  className={`w-full px-4 py-3 rounded-lg border ${errors.name ? 'border-red-600 ring-1 ring-red-600' : 'border-gray-200'} focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-slate-900 bg-white`}
+                  placeholder="Enter your name" disabled={isLoading}
+                />
+                {errors.name && <p className="text-red-600 text-xs mt-1 font-medium">{errors.name}</p>}
               </div>
-            )}
 
-            <div>
-              <label className="block font-title font-semibold text-sm text-brand-dark mb-1.5">Full Name</label>
-              <input 
-                type="text" name="name" value={formData.name} onChange={handleChange}
-                className={`w-full px-4 py-3 rounded-lg border ${errors.name ? 'border-brand-crimson ring-1 ring-brand-crimson' : 'border-gray-200'} focus:outline-none focus:border-brand-crimson focus:ring-1 focus:ring-brand-crimson transition-all`}
-                placeholder="Enter your name" disabled={isLoading}
-              />
-              {errors.name && <p className="text-brand-crimson text-xs mt-1 font-medium">{errors.name}</p>}
-            </div>
+              <div>
+                <label className="block font-title font-semibold text-sm text-slate-900 mb-1.5">Email Address</label>
+                <input 
+                  type="email" name="email" value={formData.email} onChange={handleChange}
+                  className={`w-full px-4 py-3 rounded-lg border ${errors.email ? 'border-red-600 ring-1 ring-red-600' : 'border-gray-200'} focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all text-slate-900 bg-white`}
+                  placeholder="user@domain.com" disabled={isLoading}
+                />
+                {errors.email && <p className="text-red-600 text-xs mt-1 font-medium">{errors.email}</p>}
+              </div>
 
-            <div>
-              <label className="block font-title font-semibold text-sm text-brand-dark mb-1.5">Email Address</label>
-              <input 
-                type="email" name="email" value={formData.email} onChange={handleChange}
-                className={`w-full px-4 py-3 rounded-lg border ${errors.email ? 'border-brand-crimson ring-1 ring-brand-crimson' : 'border-gray-200'} focus:outline-none focus:border-brand-crimson focus:ring-1 focus:ring-brand-crimson transition-all`}
-                placeholder="user@domain.com" disabled={isLoading}
-              />
-              {errors.email && <p className="text-brand-crimson text-xs mt-1 font-medium">{errors.email}</p>}
-            </div>
+              <div>
+                <label className="block font-title font-semibold text-sm text-slate-900 mb-1.5">Message / Inquiry</label>
+                <textarea 
+                  name="message" rows="5" value={formData.message} onChange={handleChange}
+                  className={`w-full px-4 py-3 rounded-lg border ${errors.message ? 'border-red-600 ring-1 ring-red-600' : 'border-gray-200'} focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-all resize-none text-slate-900 bg-white`}
+                  placeholder="Type your communication details here..." disabled={isLoading}
+                ></textarea>
+                {errors.message && <p className="text-red-600 text-xs mt-1 font-medium">{errors.message}</p>}
+              </div>
 
-            <div>
-              <label className="block font-title font-semibold text-sm text-brand-dark mb-1.5">Message / Inquiry</label>
-              <textarea 
-                name="message" rows="5" value={formData.message} onChange={handleChange}
-                className={`w-full px-4 py-3 rounded-lg border ${errors.message ? 'border-brand-crimson ring-1 ring-brand-crimson' : 'border-gray-200'} focus:outline-none focus:border-brand-crimson focus:ring-1 focus:ring-brand-crimson transition-all resize-none`}
-                placeholder="Type your communication details here..." disabled={isLoading}
-              ></textarea>
-              {errors.message && <p className="text-brand-crimson text-xs mt-1 font-medium">{errors.message}</p>}
-            </div>
-
-            <button 
-              type="submit" disabled={isLoading}
-              className="w-full py-3.5 bg-brand-crimson text-brand-white font-title font-bold rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-sm"
-            >
-              {isLoading ? 'Processing Ingestion...' : 'Submit Form'}
-            </button>
-          </form>
-        )}
-      </div>
-    </main>
+              <button 
+                type="submit" disabled={isLoading}
+                className="w-full py-3.5 bg-red-600 text-white font-title font-bold rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-sm"
+              >
+                {isLoading ? 'Processing Ingestion...' : 'Submit Form'}
+              </button>
+            </form>
+          )}
+        </div>
+      </main>
   );
 }

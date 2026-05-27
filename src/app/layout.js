@@ -1,5 +1,5 @@
 import { ClerkProvider } from '@clerk/nextjs';
-import '@/styles/globals.css'; // Adjust path if your styling layout differs
+import './globals.css'; // Adjust path if your styling layout differs
 
 export const metadata = {
   title: 'She Can Foundation',
