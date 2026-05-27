@@ -1,5 +1,7 @@
 # She Can Foundation — Frontend
 
+READ requirements.txt file First
+
 A modern Next.js admin and public intake frontend built for the She Can Foundation. This app provides a public contact submission form and a Clerk-secured admin console for reviewing, refreshing, and deleting intake records.
 
 ## Core Tech Stack

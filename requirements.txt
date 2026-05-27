@@ -1,0 +1,284 @@
+SOFTWARE REQUIREMENTS SPECIFICATION (SRS)
+Project Title: She Can Foundation - Full-Stack Contact & Admin Management System
+Author: Kyateka Given Ethan
+Stack Constraints: Strictly JavaScript (ES6+), No TypeScript.
+
+1. Complete Tooling & Environment Ecosystem
+-> Development & Engineering Tools
+ Runtime Environment: Node.js (v18+ or v20+ LTS)
+ Package Manager: `npm` (bundled with Node)
+ Folder Structure Management: Two separate directories (`/frontend` and `/backend`)
+ Development Server Automations:  `nodemon` (Backend) - For hot-reloading Express server on save.
+ `next dev` (Frontend) - Native Next.js fast-refresh development environment.
+ Environment Variable Management: `dotenv` package for the Express backend; native `.env.local` support for Next.js frontend.
+ Database: Aiven MySQL (for manual querying, checking tables, and database debugging).
+ API Testing Client: Postman to manually verify endpoints prior to frontend integration.
+
+ ->Hosting, Deployment & CI/CD Strategy
+ Source Control: GitHub (Public or Private repository holding the codebase).
+ Frontend Hosting (`/frontend`): Vercel  Automatic deployments triggered on every push to the `main` branch.
+ Native integration with Clerk production environment variables.
+ Backend Hosting (`/backend`): Render Deployed as a Web Service running on a persistent Node.js environment.
+ Configured with health check endpoints to monitor uptime.
+ Database Cloud Platform: Aiven Cloud
+ Managed MySQL 8.0 instance with accessible hostnames, automated backups, and SSL enforcement turned on.
+
+ 2. Comprehensive Use Case Analysis
+ Use Case 1: Public User Submits Contact Form
+ Actor: Guest OR Public Web Visitor
+ Pre-conditions: The visitor has navigated to the base URL (`/`) of the web application.
+ Trigger: The visitor fills in the fields and clicks the "Submit" button.
+ Main Flow:
+    1. System displays the form containing Name, Email, and Message fields.
+    2. User inputs their data.
+    3. User clicks "Submit".
+    4. Client-side validation triggers to check for basic correctness (non-empty fields, structured email format).
+    5. Frontend displays a loading spinner and disables the submit button to prevent double-submitting.
+    6. Frontend sends an HTTP `POST` request to the Express API backend.
+    7. Backend validates the payload.
+    8. Backend commits records to the Aiven MySQL database.
+    9. Backend sends back an HTTP `201 Created` status code.
+    10. Frontend captures success response, stops the loading spinner, clears out the form input fields, and displays: “Form Submitted Successfully”.
+ Alternative Flows (Error Handling):
+ Validation Fails: If data is malformed, frontend halts request and shows inline red errors. If backend validation fails, it throws a `400 Bad Request`, and the frontend catches the error to show a user-friendly alert message.
+ Server/Network Down: If Express or MySQL is unreachable, the frontend intercepts the network failure and presents an error message (e.g., "Server is temporarily unreachable. Please try again later."), keeping the user's typed input intact.
+
+ Use Case 2: Admin Authentication, Audit Logging & Access Control
+ Actor: Foundation Administrator
+ Pre-conditions: Admin tries to navigate directly to the dashboard URL (/admin/dashboard) or accesses the specific production link (e.g., [https://your-app.vercel.app/admin]).
+ Trigger: Attempting to access a protected administration route.
+ Main Flow:
+1. Next.js middleware hooks into Clerk to check for an active user session token.
+2. If no valid session is found, Clerk intercepts the request and cleanly redirects the user to the Login page (/sign-in).
+3. The Admin enters their valid foundation credentials into the Clerk interface.
+4. Clerk authenticates the user credentials and generates a secure session token.
+5. Instead of going straight to the dashboard, Clerk redirects the admin to an intermediate Loading/Sync page (/admin/auth-callback).
+6. While the admin sees a loading state, the frontend dispatches a background POST request to the Express backend (e.g., /api/admin/log-signin), carrying the Clerk token.
+7. The Express backend validates the token, extracts the admin's details, and executes an INSERT/UPDATE query into an admin_logs table in the Aiven MySQL database to track the exact login timestamp and user information.
+8. The backend returns a successful 200 OK or 201 Created response back to the frontend.
+9. Upon receiving this successful backend response, the Next.js frontend triggers a final redirect, sending the admin cleanly onto the actual Admin Dashboard (/admin/dashboard).
+
+ Use Case 3: Admin Manages and Deletes Form Submissions
+ Actor: Authenticated Foundation Administrator
+ Pre-conditions: User has successfully completed the Use Case 2 authentication and log-sync flow, and is now actively sitting on the Admin Dashboard (/admin/dashboard).
+ Trigger: The dashboard component mounts or the admin interacts with a "Delete" option next to a specific record.
+ Main Flow:
+1. The Next.js dashboard requests the list of records from the backend via GET /api/submissions, passing the validated Clerk JWT/Bearer token inside the HTTP Authorization header.
+2. The Express backend interceptor intercepts the incoming request and validates the Clerk token to verify identity.
+3. The backend queries the Aiven MySQL database using: SELECT id, name, email, message, created_at FROM submissions ORDER BY created_at DESC;
+4. MySQL returns the dataset, and the backend sends it back to the Next.js frontend as a structured JSON array.
+5. The Admin panel captures the JSON array and displays the records cleanly to the admin user in a responsive grid layout.
+6. The Admin reviews the submissions and clicks the "Delete" action button next to an unwanted record.
+7. The frontend dispatches a secure DELETE /api/submissions/:id request to the backend, carrying the Clerk JWT in the headers and the targeted record ID in the URL parameter.
+8. The backend authenticates the token, drops the record from MySQL via: DELETE FROM submissions WHERE id = ?; and replies with a 200 OK success message.
+9. The frontend UI catches the 200 OK status code and instantly re-fetches the list or filters the local state to remove the deleted row from the user's view without requiring a full page refresh.
+
+ 3. Strict Acceptance Criteria (AC)
+ AC 1: Public Form Component
+ Must visually format cleanly across mobile viewports (375px) up to desktop monitors (920px) via Tailwind utility utilities.
+ Must dynamically show a processing/loading state while waiting on backend fulfillment; the submit button must be disabled during this time.
+ Must render exact phrase “Form Submitted Successfully” upon successful receipt of a `201` HTTP response status.
+
+ AC 2: Form & Input Validation Constraints
+ Name Field: Must be trimmed string, minimum length of 2 characters, maximum of 125 characters. Cannot be null or blank spaces.
+ Email Field: Must match standard RFC 5322 regex validation pattern (e.g., `user@domain.com`).
+ Message Field: Must be a trimmed string, minimum length of 10 characters, maximum of 2500 characters.
+ Fail-Safe: Validation must exist both client-side (for UX) and server-side (for security).
+
+ AC 3: Admin Dashboard Secure State
+ Any unauthenticated request attempting to hit `/admin` must be actively dropped and redirected to sign-in instantly by Clerk.
+ The backend database credentials must never be exposed to the frontend browser context. All database operations must go strictly through the Express wrapper.
+
+
+4. Full Backend API Specification & Testing Plan
+ENDPOINT 1 
+ Method: POST
+ Endpoint: /api/submissions
+ Access Level: Public
+ Payload Requirement: JSON body containing { name, email, message }
+ Success Response: 201 Created
+ Body: { success: true, message: "Form Submitted Successfully" }
+
+ Expected Failure Responses:
+ 400 Bad Request (Validation errors such as empty fields or invalid email format)
+ 500 Internal Error (Database connection down or server-side failure)
+
+ENDPOINT 2 
+ Method: POST
+ Endpoint: /api/admin/log-signin
+ Access Level: Protected (Clerk Auth Token Required)
+ Payload Requirement: JSON body containing admin metadata or extracted via token
+ Success Response: 200 OK or 201 Created
+ Body: { success: true, message: "Login event logged successfully" }
+
+ Expected Failure Responses:
+ 401 Unauthorized (Missing, expired, or invalid Clerk token)
+ 500 Internal Error (Failed to write to admin_logs table in Aiven MySQL)
+
+ ENDPOINT 3 
+ Method: GET
+ Endpoint: /api/submissions
+ Access Level: Protected (Clerk Auth Token Required)
+ Payload Requirement: None (Bearer Token passed dynamically in the HTTP Authorization Header)
+ Success Response: 200 OK
+ Body: An array of objects [ { id, name, email, message, created_at }, ... ]
+
+ Expected Failure Responses:
+ 401 Unauthorized (Missing or invalid Clerk session token)
+ 500 Internal Error (Database query failure or connection drop)
+
+ ENDPOINT 4 
+ Method: DELETE
+ Endpoint: /api/submissions/:id
+ Access Level: Protected (Clerk Auth Token Required)
+ Payload Requirement: Route parameter "id" passed as an integer in the URL path
+ Success Response: 200 OK
+ Body: { success: true, message: "Deleted" }
+
+ Expected Failure Responses:
+ 401 Unauthorized (Missing or invalid Clerk session token)
+ 404 Not Found (The targeted submission ID does not exist in the database)
+ 500 Internal Error (Database failure during deletion command execution)
+
+ COMPLETE BACKEND TESTING PLAN (MANUAL & INTEGRATION ROUTING) 
+1. Public Submission Unit Test:
+ Action: Dispatch POST to /api/submissions with complete, valid JSON schema fields.
+ Verification: Assert response status code is exactly 201. Verify using a database GUI client that a new row matching the payload has been committed to the submissions table with an accurate system timestamp.
+2. Malformed Payload Validation Test:
+ Action: Dispatch POST to /api/submissions with an invalid email address format, empty message field, or missing parameters entirely.
+ Verification: Assert response code is exactly 400 Bad Request. The JSON response body must explicitly return error parameters outlining which field failed validation rules.
+3. Unauthenticated Data Leaks Protection Test:
+ Action: Attempt to issue a direct GET request to /api/submissions without passing any Authorization header or session tokens.
+ Verification: Assert response returns HTTP code 401 Unauthorized. The application layer must completely block database access and query execution.
+4. Session Tracking Verification Test:
+ Action: Emulate a successful Clerk sign-in by hitting /api/admin/log-signin with a valid auth token.
+ Verification: Assert response code is 200 OK/201 Created. Check the admin_logs table to confirm a new row correctly captures the timestamp of the access event.
+5. Malicious ID Deletion Integrity Test:
+ Action: Pass a non-existent, negative, or string-formatted ID parameter to the delete route (e.g., DELETE /api/submissions/999999 or /api/submissions/abc).
+ Verification: Ensure the Express server handles the structural parsing cleanly without crashing, returning either a logical 404 Not Found or a handled 400 Bad Request error.
+ 5. Comprehensive Environment Variables Map (`.env`)
+These configurations must be structured explicitly across local and remote instances using `.env` for Express and `.env.local` for Next.js.
+
+--->>>Backend Configurations (`/backend/.env`)
+
+-> env file
+ Server Network Settings
+PORT=5000
+NODE_ENV=development
+
+ Aiven Cloud MySQL Database Connection String Parameters
+DB_HOST=mysql-instance-name.aivencloud.com
+DB_USER=avnadmin
+DB_PASSWORD=your_secure_aiven_password_here
+DB_NAME=she_can_foundation_db
+DB_PORT=24689
+
+ Security/Clerk verification properties for backend route protection
+CLERK_JWT_VERIFICATION_KEY=your_clerk_pem_public_key_or_issuer_url
+
+
+--->>> Frontend Configurations (`/frontend/.env.local`)
+
+-> env local fie
+ API Gateway Endpoint URL pointing to Express 
+NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
+
+ Clerk Authentication Keys (Public variables exposed to browser, secret keys kept server-side)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+
+ Clerk Auth Route Custom Redirections
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/admin
+
+
+SOFTWARE DESIGN SPECIFICATION (SDS)
+1. SYSTEM REPOSITORY & SYSTEM ARCHITECTURE DESIGN
+Directory Layout Blueprint
+she-can-project/
+│
+├── backend/                  # Express.js Application Root
+│   ├── config/               # Database pool and connection configurations
+│   │   └── db.js
+│   ├── middleware/           # Auth and validation execution layers
+│   │   ├── auth.js           # Clerk token verification interceptor
+│   │   └── validate.js       # Input sanitizer and form fields rule checker
+│   ├── routes/               # API Router mappings
+│   │   ├── submissions.js    # Form endpoints (POST, GET, DELETE)
+│   │   └── admin.js          # Audit logging endpoint (POST)
+│   ├── .env                  # Backend environmental secrets (git-ignored)
+│   ├── package.json          # Node dependencies (express, mysql2, dotenv, cors)
+│   └── server.js             # Main system initialization point
+│
+└── frontend/                 # Next.js Web Application Root
+    ├── src/
+    │   ├── app/              # Next.js App Router Structure
+    │   │   ├── page.js       # Public Landing Page (The She Can Form)
+    │   │   ├── sign-in/      # Clerk login route component page
+    │   │   └── admin/        # Core admin root
+    │   │       ├── auth-callback/ # Mid-way loading state & sync logger
+    │   │       └── dashboard/     # Secure Admin Submissions Grid Interface
+    │   ├── components/       # Shared UI Elements (Buttons, Inputs, Spinners)
+    │   └── styles/           # Tailwind configurations and style directives
+    ├── .env.local            # Frontend local environmental settings (git-ignored)
+    ├── package.json          # Next.js, Clerk SDK, Tailwind dependencies
+    └── tailwind.config.js    # Custom brand color overrides and font declarations
+
+2. DATABASE ARCHITECTURE DESIGN (AIVEN MYSQL)
+Table 1 Name: submissions
+    Description: Stores incoming public contact form submissions.
+    Columns:
+        id: INT, Primary Key, Auto-Increment, Not Null.
+        name: VARCHAR(100), Not Null (Trimmed string).
+        email: VARCHAR(255), Not Null (Validated email string).
+        message: TEXT, Not Null (Sanitized user text block).
+        created_at: TIMESTAMP, Default CURRENT_TIMESTAMP, Not Null.
+
+Table 2 Name: admin_logs
+    Description: Tracks backend authorization events and logs when foundation administrators access the panel.
+    Columns:
+        id: INT, Primary Key, Auto-Increment, Not Null.
+        clerk_user_id: VARCHAR(150), Not Null (Unique string signature from Clerk).
+        admin_email: VARCHAR(255), Not Null (Email of the logged-in administrator).
+        action_performed: VARCHAR(100), Not Null (e.g., "LOGIN_VERIFICATION", "RECORD_DELETION").
+        ip_address: VARCHAR(45), Nullable (For basic system auditing security).
+        logged_at: TIMESTAMP, Default CURRENT_TIMESTAMP, Not Null.
+
+3. UI DESIGN GUIDE & BRAND IDENTITY SYSTEM
+A) The Brand Palette (Tailwind Design Mapping)
+    Base Background (Light Theme):
+        Primary Background: #FFFFFF (Pure White) - For clean readability and structure.
+        Secondary Background/Cards: #F9FAFB (Off-White / Slate 50) - To softly isolate form borders and tables.
+    Primary Text & High Contrast Components:
+        Primary Typography / Deep UI Components: #0F172A (Deep Slate Black / Slate 900).
+    Signature Brand Accent Color:
+        Crimson Red / Alert Callouts: #DC2626 (Vibrant Red / Red 600) - Used intentionally on buttons, submission validation errors, active states, and focus states.
+
+B) Typography Rules
+We are initializing two specific Google Fonts inside the project configuration layout:
+    Title & Heading Typography: "DM Sans"
+        Used for: Primary Headers (H1, H2, H3), Form Section Labels, Page Hero Banners, and Navigation branding titles.
+        Behavioral Style: Semi-Bold (600) or Bold (700) weights, sharp letter spacing, high visibility.
+    Body & Paragraph Typography: "Poppins"
+        Used for: Form Field Inputs, User Message Textareas, Success/Failure validation notification text, Table Data Cells, and legal descriptions.
+        Behavioral Style: Regular (400) or Medium (500) weights, clear line spacing for high reading legibility.
+
+C) Layout & Interface Blueprints
+Layout 1: Public Contact Page (/)
+    Structure: Centered container layout against an off-white canvas.
+    Element 1: Header/Hero section featuring the She Can Foundation brand accent lines using bold DM Sans font.
+    Element 2: A floating card container (#FFFFFF) housing the submission system.
+    Inputs: Name, Email, and Message. Input fields utilize light borders that dynamically focus transitions into a Crimson Red outline ring. Text inside uses Poppins.
+    Submit Button: Bold block design using primary Crimson Red color. Displays a fading transition change state on cursor hover. Disables instantly on execution, turning into a loading state spinner.
+    Success State: Replaces the form instantly or transitions into a dedicated feedback component box displaying the explicit phrase: “Form Submitted Successfully” in a bold font paired with a green or crimson confirmation badge.
+
+Layout 2: Admin Auth-Callback Loading Intermediary (/admin/auth-callback)
+    Structure: Full-screen centered minimalist viewport canvas.
+    Design: Pure white theme containing a modern rotating loading spinner rendered in Crimson Red.
+    Text: A single line of Poppins text reads: "Synchronizing security profile... Please wait." This page runs the backend data-sync POST sequence before auto-routing to the dashboard.
+
+Layout 3: Secure Admin Dashboard (/admin/dashboard)
+    Structure: Top navigation bar containing the logged-in admin email signature alongside a Clerk "Sign Out" option.
+    Main Panel: A wide fluid data container utilizing the DM Sans typeface for data columns.
+    Submissions Grid Layout: Rows alternate cleanly between white (#FFFFFF) and soft off-white tinting (#F9FAFB) for rapid human row tracking.
+    Row Actions: Each data row features a visible, highly responsive "Delete" button rendered in clean Crimson Red text with a transparent layout background. Hovering over the button reveals a full background color inversion to make management swift and explicit.
